@@ -90,7 +90,109 @@ function App() {
   const [selectedDepositAsset, setSelectedDepositAsset] = useState('USDT');
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  const [isRichProfile, setIsRichProfile] = useState(false);
+  const [isRichProfile, setIsRichProfile] = useState(true); // Default to true so assets aren't $0.00
+  const [showMainChart, setShowMainChart] = useState(true); // Show mock line chart by default
+  const [selectedTimeframe, setSelectedTimeframe] = useState('1D');
+  const [hoveredPoint, setHoveredPoint] = useState(null);
+
+  const chartDataSets = {
+    '1D': [
+      { time: '09:00 AM', value: 28100000 },
+      { time: '11:00 AM', value: 28400000 },
+      { time: '01:00 PM', value: 28250000 },
+      { time: '03:00 PM', value: 28900000 },
+      { time: '05:00 PM', value: 28600000 },
+      { time: '07:00 PM', value: 29200000 },
+      { time: '09:00 PM', value: 28854000 }
+    ],
+    '1W': [
+      { time: 'Mon', value: 27500000 },
+      { time: 'Tue', value: 28200000 },
+      { time: 'Wed', value: 27900000 },
+      { time: 'Thu', value: 28600000 },
+      { time: 'Fri', value: 28300000 },
+      { time: 'Sat', value: 29100000 },
+      { time: 'Sun', value: 28854000 }
+    ],
+    '1M': [
+      { time: 'Week 1', value: 25000000 },
+      { time: 'Week 2', value: 26800000 },
+      { time: 'Week 3', value: 26100000 },
+      { time: 'Week 4', value: 28854000 }
+    ],
+    '1Y': [
+      { time: 'Jan', value: 12000000 },
+      { time: 'Mar', value: 15400000 },
+      { time: 'May', value: 18200000 },
+      { time: 'Jul', value: 22000000 },
+      { time: 'Sep', value: 24500000 },
+      { time: 'Nov', value: 27200000 },
+      { time: 'Dec', value: 28854000 }
+    ]
+  };
+
+  const getChartPathAndFill = (width = 300, height = 100) => {
+    const dataPoints = chartDataSets[selectedTimeframe];
+    if (!dataPoints || dataPoints.length === 0) return { linePath: "", fillPath: "", points: [] };
+    
+    // Scale factor based on current total balance
+    const scale = totalBalance > 0 ? (totalBalance / 28854000) : 0;
+    
+    const scaledPoints = dataPoints.map(d => ({
+      ...d,
+      value: d.value * scale
+    }));
+    
+    const values = scaledPoints.map(d => d.value);
+    const minVal = Math.min(...values) * 0.99;
+    const maxVal = Math.max(...values) * 1.01;
+    const valRange = maxVal - minVal || 1;
+    
+    const points = scaledPoints.map((d, index) => {
+      const x = (index / (scaledPoints.length - 1)) * width;
+      const y = height - ((d.value - minVal) / valRange) * height;
+      return { x, y, time: d.time, value: d.value };
+    });
+    
+    let linePath = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i];
+      const p1 = points[i+1];
+      const cpX1 = p0.x + (p1.x - p0.x) / 2;
+      const cpY1 = p0.y;
+      const cpX2 = p0.x + (p1.x - p0.x) / 2;
+      const cpY2 = p1.y;
+      linePath += ` C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${p1.x} ${p1.y}`;
+    }
+    
+    const fillPath = `${linePath} L ${points[points.length-1].x} ${height} L ${points[0].x} ${height} Z`;
+    
+    return { linePath, fillPath, points };
+  };
+
+  const handleChartMouseMove = (e, points) => {
+    if (!points || points.length === 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0].clientX);
+    if (clientX === undefined) return;
+    
+    const x = clientX - rect.left;
+    const svgWidth = rect.width;
+    const scaledX = (x / svgWidth) * 300;
+    
+    let closest = points[0];
+    let minDistance = Math.abs(points[0].x - scaledX);
+    
+    for (let i = 1; i < points.length; i++) {
+      const distance = Math.abs(points[i].x - scaledX);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closest = points[i];
+      }
+    }
+    
+    setHoveredPoint(closest);
+  };
 
   // Simulated Trading States
   const [showTradeModal, setShowTradeModal] = useState(false);
@@ -424,39 +526,139 @@ function App() {
                   <div className="mt-4 flex items-center justify-between">
                     <div>
                       <h1 className="text-4xl font-extrabold tracking-tight text-white select-text">
-                        ${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ${(hoveredPoint ? hoveredPoint.value : totalBalance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </h1>
                       <div className="mt-1 flex items-center space-x-1.5 text-xs font-bold text-zinc-500">
-                        {totalBalance === 0 ? (
+                        {hoveredPoint ? (
+                          <span className="text-[#D0FF00]">Portfolio Value ({hoveredPoint.time})</span>
+                        ) : totalBalance === 0 ? (
                           <span>$0.00 (0.00%)</span>
                         ) : (
                           <span className={changeData.usd >= 0 ? "text-[#D0FF00]" : "text-red-500"}>
                             {changeData.usd >= 0 ? '+' : ''}${changeData.usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({changeData.usd >= 0 ? '+' : ''}{changeData.percent.toFixed(2)}%)
                           </span>
                         )}
-                        <span className="bg-[#1C1C1E] px-1.5 py-0.5 rounded text-[9px] text-zinc-400 font-bold font-sans">1D</span>
+                        {!hoveredPoint && (
+                          <span className="bg-[#1C1C1E] px-1.5 py-0.5 rounded text-[9px] text-zinc-400 font-bold font-sans">1D</span>
+                        )}
                       </div>
                     </div>
 
                     <div className="pr-1">
-                      <svg className="w-[110px] h-[36px] overflow-visible" viewBox="0 0 120 24">
-                        <defs>
-                          <filter id="glow-dash" x="-20%" y="-20%" width="140%" height="140%">
-                            <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodColor="#D0FF00" floodOpacity="0.45" />
-                          </filter>
-                        </defs>
-                        <path
-                          d={getSparklinePath()}
-                          fill="none"
-                          stroke="#D0FF00"
-                          strokeWidth="2.2"
-                          strokeDasharray={totalBalance === 0 ? "3.5 2.5" : "none"}
-                          className={totalBalance === 0 ? "opacity-75" : "drop-shadow-[0_2px_4px_rgba(208,255,0,0.5)]"}
-                          style={{ filter: totalBalance > 0 ? 'url(#glow-dash)' : 'none' }}
-                        />
-                      </svg>
+                      <button 
+                        onClick={() => setShowMainChart(!showMainChart)}
+                        className={`p-2 rounded-xl transition-all border active:scale-95 cursor-pointer ${
+                          showMainChart 
+                            ? 'bg-[#D0FF00]/10 border-[#D0FF00] text-[#D0FF00]' 
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+                        }`}
+                        title="Toggle main chart"
+                      >
+                        <TrendingUp className="w-5 h-5" />
+                      </button>
                     </div>
                   </div>
+
+                  {/* Interactive Chart Section */}
+                  {showMainChart && (
+                    <div className="bg-[#121213] border border-zinc-900 rounded-2xl p-4 mt-4 transition-all">
+                      {/* SVG container */}
+                      <div className="relative w-full h-[100px]">
+                        <svg 
+                          className="w-full h-full overflow-visible cursor-crosshair" 
+                          viewBox="0 0 300 100"
+                          onMouseMove={(e) => {
+                            const { points } = getChartPathAndFill(300, 100);
+                            handleChartMouseMove(e, points);
+                          }}
+                          onTouchMove={(e) => {
+                            const { points } = getChartPathAndFill(300, 100);
+                            handleChartMouseMove(e, points);
+                          }}
+                          onMouseLeave={() => setHoveredPoint(null)}
+                          onTouchEnd={() => setHoveredPoint(null)}
+                        >
+                          <defs>
+                            <linearGradient id="chart-grad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#D0FF00" stopOpacity="0.25" />
+                              <stop offset="100%" stopColor="#D0FF00" stopOpacity="0.00" />
+                            </linearGradient>
+                            <filter id="glow-chart" x="-20%" y="-20%" width="140%" height="140%">
+                              <feDropShadow dx="0" dy="2" stdDeviation="2.5" floodColor="#D0FF00" floodOpacity="0.5" />
+                            </filter>
+                          </defs>
+                          
+                          {/* Fill path */}
+                          <path
+                            d={getChartPathAndFill(300, 100).fillPath}
+                            fill="url(#chart-grad)"
+                          />
+                          
+                          {/* Line path */}
+                          <path
+                            d={getChartPathAndFill(300, 100).linePath}
+                            fill="none"
+                            stroke="#D0FF00"
+                            strokeWidth="2.5"
+                            style={{ filter: 'url(#glow-chart)' }}
+                          />
+                          
+                          {/* Hover vertical line and tooltip marker */}
+                          {hoveredPoint && (
+                            <>
+                              <line
+                                x1={hoveredPoint.x}
+                                y1="0"
+                                x2={hoveredPoint.x}
+                                y2="100"
+                                stroke="#D0FF00"
+                                strokeWidth="1"
+                                strokeDasharray="2 2"
+                                className="opacity-60"
+                              />
+                              <circle
+                                cx={hoveredPoint.x}
+                                cy={hoveredPoint.y}
+                                r="5"
+                                fill="#D0FF00"
+                                stroke="black"
+                                strokeWidth="1.5"
+                                className="drop-shadow-[0_0_4px_rgba(208,255,0,0.8)]"
+                              />
+                            </>
+                          )}
+                        </svg>
+                      </div>
+
+                      {/* Timeframe Selector & Hover info */}
+                      <div className="flex justify-between items-center mt-3 pt-2 border-t border-zinc-900/60">
+                        <div className="flex space-x-1.5">
+                          {['1D', '1W', '1M', '1Y'].map((tf) => (
+                            <button
+                              key={tf}
+                              type="button"
+                              onClick={() => setSelectedTimeframe(tf)}
+                              className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
+                                selectedTimeframe === tf 
+                                  ? 'bg-white text-black' 
+                                  : 'bg-[#18181a] text-zinc-500 hover:text-zinc-300'
+                              }`}
+                            >
+                              {tf}
+                            </button>
+                          ))}
+                        </div>
+                        
+                        <div className="text-[10px] text-zinc-500 font-bold">
+                          {hoveredPoint ? (
+                            <span className="text-[#D0FF00] font-mono">{hoveredPoint.time}</span>
+                          ) : (
+                            <span>Touch graph to explore</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </section>
 
                 <section className="grid grid-cols-4 gap-2 mb-6">
