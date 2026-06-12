@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">OKW</string>
+    <string name="title_activity_main">OKW</string>
+    <string name="package_name">com.okx.wallet.replica</string>
+    <string name="custom_url_scheme">com.okx.wallet.replica</string>
+</resources>
