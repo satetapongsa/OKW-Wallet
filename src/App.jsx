@@ -335,10 +335,10 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#070708] flex items-center justify-center p-0 sm:p-6 md:p-12 overflow-x-hidden font-sans">
+    <div className="w-full h-full bg-[#070708] flex items-center justify-center p-0 sm:p-6 md:p-12 overflow-hidden font-sans">
       
       {/* iPhone Device Mockup Shell */}
-      <div className="w-full sm:w-[412px] h-full sm:h-[892px] bg-black sm:rounded-[48px] sm:border-[8px] sm:border-[#1F1F22] sm:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col relative select-none">
+      <div className="w-full h-full sm:w-[412px] sm:h-[892px] bg-black sm:rounded-[48px] sm:border-[8px] sm:border-[#1F1F22] sm:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col relative select-none">
         
         {/* Dynamic Island / Status Bar */}
         <div className="hidden sm:flex justify-between items-center px-8 pt-4 pb-2 bg-black text-xs font-semibold text-zinc-400 z-30">
